@@ -18,7 +18,7 @@ class DataProcessor(ABC):
         try:
             return self.process(data)
         except TypeError as e:
-            return e
+            return f"{e}"
 
 
 class NumericProcessor(DataProcessor):
