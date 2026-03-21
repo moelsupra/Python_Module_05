@@ -12,7 +12,13 @@ class DataProcessor(ABC):
         ...
 
     def format_output(self, result: str) -> str:
-        return f"Output: {result}"
+        return result
+
+    def safe_process(self, data: Any) -> str:
+        try:
+            return self.process(data)
+        except TypeError as e:
+            return e
 
 
 class NumericProcessor(DataProcessor):
@@ -56,44 +62,54 @@ class LogProcessor(DataProcessor):
 
     def format_output(self, result: str) -> str:
         if "ERROR" in result:
-            return super().format_output(f"[ALERT] {result}")
+            return f"[ALERT] {result}"
         elif "INFO" in result:
-            return super().format_output(f"[INFO] {result}")
-        return super().format_output(result)
+            return f"[INFO] {result}"
+        return result
+
+
+def run_individual_demo(
+    numeric: NumericProcessor,
+    text: TextProcessor,
+    log: LogProcessor
+) -> None:
+    print("=== CODE NEXUS - DATA PROCESSOR FOUNDATION ===\n")
+
+    num_data = [1, 2, 3, 4, 5]
+    print("Initializing Numeric Processor...")
+    print(f"Processing data: {num_data}")
+    print("Validation: Numeric data verified")
+    print(f"Output: {numeric.safe_process(num_data)}\n")
+
+    txt_data = "Hello Nexus World"
+    print("Initializing Text Processor...")
+    print(f'Processing data: "{txt_data}"')
+    print("Validation: Text data verified")
+    print(f"Output: {text.safe_process(txt_data)}\n")
+
+    log_data = "ERROR: Connection timeout"
+    print("Initializing Log Processor...")
+    print(f'Processing data: "{log_data}"')
+    print("Validation: Log entry verified")
+    print(f"Output: {log.safe_process(log_data)}\n")
+
+
+def run_polymorphic_demo(
+    numeric: NumericProcessor,
+    text: TextProcessor,
+    log: LogProcessor
+) -> None:
+    print("=== Polymorphic Processing Demo ===")
+    print("Processing multiple data types through same interface...")
+    print(f"Result 1: {numeric.safe_process([2, 2, 2])}")
+    print(f"Result 2: {text.safe_process('Mohamed Amine')}")
+    print(f"Result 3: {log.safe_process('INFO: System ready')}")
+    print("Foundation systems online. Nexus ready for advanced streams.")
 
 
 if __name__ == "__main__":
-    print("=== CODE NEXUS - DATA PROCESSOR FOUNDATION ===\n")
-
     numeric = NumericProcessor()
-    data = [1, 2, 3, 4, 5]
-    print("Initializing Numeric Processor...")
-    if numeric.validate(data):
-        print(f"Processing data: {data}")
-        print("Validation: Numeric data verified")
-    print(numeric.process(data), "\n")
-
     text = TextProcessor()
-    data = "Hello Nexus World"
-    print("Initializing Text Processor...")
-    if text.validate(data):
-        print(f"Processing data: \"{data}\"")
-        print("Validation: Text data verified")
-    print(text.process(data), "\n")
-
     log = LogProcessor()
-    data = "ERROR: Connection timeout"
-    print("Initializing Log Processor...")
-    if log.validate(data):
-        print(f"Processing data: \"{data}\"")
-        print("Validation: Log entry verified")
-    print(log.process(data), "\n")
-
-    print("=== Polymorphic Processing Demo ===\n")
-    print("Processing multiple data types through same interface...")
-
-    print(f"Result 1: {numeric.process([2, 2, 2])}")
-    print(f"Result 2: {text.process("Mohamed Amine")}")
-    print(f"Result 3: {log.process("INFO: System ready")}")
-
-    print("\nFoundation systems online. Nexus ready for advanced streams.")
+    run_individual_demo(numeric, text, log)
+    run_polymorphic_demo(numeric, text, log)
