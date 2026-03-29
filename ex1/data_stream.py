@@ -116,7 +116,7 @@ class TransactionStream(DataStream):
             for item in data_batch:
                 try:
                     key, value = item.split(':')
-                    if int(value) >= 100:
+                    if int(value) > 100:
                         filtered.append(item)
                 except ValueError:
                     pass
@@ -216,7 +216,7 @@ def run_polymorphic_demo() -> None:
     sensor_alerts = ["temp:50", "temp:22", "temp:55"]
     large = ["buy:100", "sell:150", "buy:75"]
     critical = sensor.filter_data(sensor_alerts, "critical")
-    big_trans = transaction.filter_data(large, "150")
+    big_trans = transaction.filter_data(large, "large")
     print(f"Filtered results: {len(critical)} critical sensor alerts, "
           f"{len(big_trans)} large transaction")
 

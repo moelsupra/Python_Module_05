@@ -4,7 +4,7 @@ from collections import defaultdict
 
 
 class ProcessingStage(Protocol):
-    def process(self, data: Any) -> Any:
+    def process(self, data: Any) -> Optional[Any]:
         ...
 
 
@@ -78,8 +78,11 @@ class StreamAdapter(ProcessingPipeline):
             for stage in self.stages:
                 result = stage.process(result)
             if isinstance(data, list):
+                if not data:
+                    return "Stream summary: 0 readings, no data"
                 avg = sum(data) / len(data)
-                return f"Stream summary: {len(data)} readings, avg: {avg}°C"
+                return f"Stream summary: {len(data)} readings, avg: "
+            f"{avg:.1f}°C"
             return f"Stream processed: {data}"
         except Exception as e:
             return f"Error: {e}"
@@ -101,6 +104,16 @@ class NexusManager:
                 print(result)
             except Exception as e:
                 print(f"Pipeline error: {e}")
+
+    def chain(
+        self,
+        data: Any,
+        pipelines: List['ProcessingPipeline']
+    ) -> str:
+        result: Any = data
+        for pipeline in pipelines:
+            result = pipeline.process(result)
+        return str(result)
 
 
 if __name__ == "__main__":
@@ -163,22 +176,22 @@ if __name__ == "__main__":
     print("Transform: Aggregated and filtered")
     print(f"Output: {stream_adapter.process(stream_data)}\n")
 
-    # Pipeline chaining
     print("=== Pipeline Chaining Demo ===")
     print("Pipeline A -> Pipeline B -> Pipeline C")
-    print("Data flow: Raw -> Processed -> Analyzed -> Stored")
-    print("Chain result: 100 records processed through 3-stage pipeline")
-    print("Performance: 95% efficiency, 0.2s total processing time\n")
+    print("Data flow: Raw -> Processed -> Analyzed -> Stored\n")
 
-    # Error recovery
+    chain_data = {"sensor": "temp", "value": 21.0, "unit": "C"}
+    chain_result = manager.chain(chain_data, [json_adapter, csv_adapter])
+    print(f"Chain result: {chain_result}")
+
     print("=== Error Recovery Test ===")
     print("Simulating pipeline failure...")
-    try:
-        json_adapter.process(None)
-        print("Error detected in Stage 2: Invalid data format")
-    except Exception:
-        print("Error detected in Stage 2: Invalid data format")
-    print("Recovery initiated: Switching to backup processor")
-    print("Recovery successful: Pipeline restored, processing resumed\n")
-
-    print("Nexus Integration complete. All systems operational.")
+    bad_result = json_adapter.process(None)
+    if bad_result.startswith("Error:"):
+        print(f"Error detected in Stage 2: {bad_result}")
+        print("Recovery initiated: Switching to backup processor")
+        fallback = json_adapter.process({"sensor": "temp",
+                                         "value": 22.0, "unit": "C"})
+        print(f"Recovery successful: {fallback}")
+    else:
+        print(f"Pipeline OK: {bad_result}")
