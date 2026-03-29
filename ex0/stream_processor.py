@@ -1,5 +1,5 @@
 from abc import abstractmethod, ABC
-from typing import Any
+from typing import Any, List, Dict, Union, Optional
 
 
 class DataProcessor(ABC):
@@ -19,6 +19,20 @@ class DataProcessor(ABC):
             return self.process(data)
         except TypeError as e:
             return f"{e}"
+
+    def run_batch(
+        self,
+        dataset: List[Any],
+        label: Optional[str] = None
+    ) -> Dict[str, Union[str, int]]:
+        results: List[str] = []
+        for data in dataset:
+            results.append(self.safe_process(data))
+        return {
+            "label": label if label else self.__class__.__name__,
+            "count": len(results),
+            "last": results[-1] if results else "no data"
+        }
 
 
 class NumericProcessor(DataProcessor):
@@ -53,12 +67,14 @@ class LogProcessor(DataProcessor):
     def process(self, data: Any) -> str:
         if not self.validate(data):
             raise TypeError("Error: Invalid type of data")
-        splited_data = data.split(": ", 1)
-        return self.format_output(f"{splited_data[0]} "
-                                  f"level detected: {splited_data[1]}")
+        split_data = data.split(": ", 1)
+        if len(split_data) < 2:
+            raise TypeError("Error: Log format must be 'LEVEL: message'")
+        return self.format_output(f"{split_data[0]} "
+                                  f"level detected: {split_data[1]}")
 
     def validate(self, data: Any) -> bool:
-        return isinstance(data, str) and ":" in data
+        return isinstance(data, str) and ": " in data
 
     def format_output(self, result: str) -> str:
         if "ERROR" in result:

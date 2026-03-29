@@ -48,10 +48,36 @@ class SensorStream(DataStream):
             if not temp_values:
                 return "No temperature data found."
             avg = sum(temp_values) / len(temp_values)
-            return (f"Sensor analysis: {len(data_batch)} readings processed, "
-                    f"avg temp: {avg}°C")
+            alerts = []
+            for temp in temp_values:
+                if temp > 40:
+                    alerts.append(f"HIGH:{temp}")
+                elif temp < 0:
+                    alerts.append(f"LOW:{temp}")
+            result = (f"Sensor analysis: {len(data_batch)} readings processed"
+                      f", avg temp: {avg}°C")
+            if alerts:
+                result += f" | ALERTS: {', '.join(alerts)}"
+            return result
         except ValueError as e:
             return f"Error parsing data ({e})"
+
+    def filter_data(
+        self,
+        data_batch: List[Any],
+        criteria: Optional[str] = None
+    ) -> List[Any]:
+        if criteria == "critical":
+            filtered = []
+            for item in data_batch:
+                try:
+                    key, value = item.split(':')
+                    if key.strip() == "temp" and float(value) > 40:
+                        filtered.append(item)
+                except ValueError:
+                    pass
+            return filtered
+        return super().filter_data(data_batch, criteria)
 
 
 class TransactionStream(DataStream):
@@ -80,6 +106,23 @@ class TransactionStream(DataStream):
         except ValueError as e:
             return f"Error parsing data ({e})"
 
+    def filter_data(
+        self,
+        data_batch: List[Any],
+        criteria: Optional[str] = None
+    ) -> List[Any]:
+        if criteria == "large":
+            filtered = []
+            for item in data_batch:
+                try:
+                    key, value = item.split(':')
+                    if int(value) >= 100:
+                        filtered.append(item)
+                except ValueError:
+                    pass
+            return filtered
+        return super().filter_data(data_batch, criteria)
+
 
 class EventStream(DataStream):
     def __init__(self, stream_id: str) -> None:
@@ -104,11 +147,19 @@ class StreamProcessor:
         self.streams: List[DataStream] = []
 
     def add_stream(self, stream: DataStream) -> None:
+        if not isinstance(stream, DataStream):
+            raise TypeError(f"Expected DataStream, got {type(stream)}")
         self.streams.append(stream)
 
-    def process_all(self, data_batch: List[Any]) -> None:
-        for stream in self.streams:
-            print(stream.safe_process(data_batch))
+    def process_all(self, batches: List[List[Any]]) -> None:
+        labels = [
+            ("Sensor data", "readings"),
+            ("Transaction data", "operations"),
+            ("Event data", "events")
+        ]
+        for stream, batch, (label, unit) in zip(self.streams, batches, labels):
+            stream.safe_process(batch)
+            print(f"- {label}: {len(batch)} {unit} processed")
 
 
 def run_individual_demo() -> None:
@@ -120,7 +171,6 @@ def run_individual_demo() -> None:
     print(f"Stream ID: {sensor.stream_id}, Type: {sensor.stream_type}")
     print(f"Processing sensor batch: [{', '.join(sensor_data)}]")
     print(sensor.safe_process(sensor_data))
-    print(f"Stats: {sensor.get_stats()}")
     print()
 
     transaction = TransactionStream("TRANS_001")
@@ -130,7 +180,6 @@ def run_individual_demo() -> None:
           f"Type: {transaction.stream_type}")
     print(f"Processing transaction batch: [{', '.join(trans_data)}]")
     print(transaction.safe_process(trans_data))
-    print(f"Stats: {transaction.get_stats()}")
     print()
 
     event = EventStream("EVENT_001")
@@ -139,7 +188,6 @@ def run_individual_demo() -> None:
     print(f"Stream ID: {event.stream_id}, Type: {event.stream_type}")
     print(f"Processing event batch: [{', '.join(event_data)}]")
     print(event.safe_process(event_data))
-    print(f"Stats: {event.get_stats()}")
     print()
 
 
@@ -161,13 +209,11 @@ def run_polymorphic_demo() -> None:
     event_batch = ["login", "error", "logout"]
 
     print("Batch 1 Results:")
-    print(f"- Sensor data: {len(sensor_batch)} readings processed")
-    print(f"- Transaction data: {len(trans_batch)} operations processed")
-    print(f"- Event data: {len(event_batch)} events processed")
+    processor.process_all([sensor_batch, trans_batch, event_batch])
 
     print()
     print("Stream filtering active: High-priority data only")
-    sensor_alerts = ["temp:50:critical", "pressure:high", "temp:55:critical"]
+    sensor_alerts = ["temp:50", "temp:22", "temp:55"]
     large = ["buy:100", "sell:150", "buy:75"]
     critical = sensor.filter_data(sensor_alerts, "critical")
     big_trans = transaction.filter_data(large, "150")
